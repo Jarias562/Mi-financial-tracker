@@ -1,0 +1,1 @@
+PWA personal de finanzas. Publicar en HTTPS y abrir en Chrome Android para instalar. Los datos se guardan localmente y pueden exportarse como respaldo.
