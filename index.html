@@ -11,7 +11,7 @@
   <div class="hero-content">
     <div class="brand"><img src="icon.svg" alt="" class="brand-icon"><div><p class="eyebrow">TU DINERO, MÁS CLARO</p><h1>Cash <span>Money</span></h1></div></div>
     <p class="tagline">Organiza tu dinero. Planea con tranquilidad.</p>
-    <div class="header-actions"><button id="installBtn" class="btn ghost" hidden>📱 Instalar app</button><button id="exportBtn" class="btn gold">↓ Exportar respaldo</button></div>
+    <div class="header-actions"><button id="installBtn" class="btn ghost" type="button">📲 Descargar / instalar app</button><button id="shareBtn" class="btn ghost" type="button">↗ Compartir app</button><button id="exportBtn" class="btn gold">↓ Exportar respaldo</button></div>
   </div>
 </header>
 <main>
@@ -53,9 +53,22 @@
 </main>
 <script src="app.js"></script>
 <script>
-let deferredInstallPrompt;const installButton=document.getElementById("installBtn");
-addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e;installButton.hidden=false});
-installButton.addEventListener("click",async()=>{if(!deferredInstallPrompt)return;deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;installButton.hidden=true});
-if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("./sw.js"));
+let deferredInstallPrompt;
+const installButton=document.getElementById("installBtn");
+const appUrl="https://jarias562.github.io/Mi-financial-tracker/";
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e;});
+installButton.addEventListener("click",async()=>{
+ if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;return;}
+ alert("Para instalar Cash Money en Android: abre este enlace en Google Chrome, toca el menú ⋮ y elige ‘Instalar app’ o ‘Añadir a pantalla principal’. Si ya la instalaste, puedes abrirla desde el icono de tu teléfono.");
+});
+document.getElementById("shareBtn").addEventListener("click",async()=>{
+ try{if(navigator.share){await navigator.share({title:"Cash Money",text:"Prueba Cash Money, mi app de finanzas personales.",url:appUrl});}
+ else if(navigator.clipboard){await navigator.clipboard.writeText(appUrl);alert("Enlace copiado. Ya puedes enviárselo a tu esposa.");}
+ else{prompt("Copia este enlace y compártelo:",appUrl);}}
+ catch(e){if(e.name!=="AbortError")prompt("Copia este enlace y compártelo:",appUrl);}
+});
+if("serviceWorker"in navigator)addEventListener("load",async()=>{
+ try{const reg=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});await reg.update();}catch(e){console.log("La app funcionará en modo web si no se puede actualizar sin conexión.");}
+});
 </script>
 </body></html>
