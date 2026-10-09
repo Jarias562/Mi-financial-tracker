@@ -1,41 +1,37 @@
 const KEY="my_finance_tracker_v1";
-let data=JSON.parse(localStorage.getItem(KEY)||'{"income":[],"expenses":[],"recurring":[]}');
-
+const defaults={income:[],expenses:[],recurring:[],allocations:[],goals:[]};
+let data;try{data={...defaults,...JSON.parse(localStorage.getItem(KEY)||"{}")};for(const k of Object.keys(defaults)){if(!Array.isArray(data[k]))data[k]=[]}}catch{data={...defaults}}
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(Number(n)||0);
+const today=()=>new Date().toLocaleDateString("en-CA");
 const save=()=>{localStorage.setItem(KEY,JSON.stringify(data));render()};
-
-function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+function withinPeriod(date){const mode=$("periodMode").value,ref=$("periodDate").value||today();if(mode==="todo")return true;if(!date)return true;const d=new Date(date+"T12:00:00"),r=new Date(ref+"T12:00:00");if(Number.isNaN(d.getTime()))return true;if(mode==="mes")return d.getFullYear()===r.getFullYear()&&d.getMonth()===r.getMonth();const half=r.getDate()<=15?1:2;return d.getFullYear()===r.getFullYear()&&d.getMonth()===r.getMonth()&&(half===1?d.getDate()<=15:d.getDate()>=16)}
+function filtered(list,dateKey){return list.filter(x=>withinPeriod(x[dateKey]))}
+function actionButtons(type,i){return '<button class="edit" onclick="editItem(\''+type+'\','+i+')">Editar</button><button class="delete" onclick="removeItem(\''+type+'\','+i+')">Borrar</button>'}
 function render(){
-  const income=data.income.reduce((a,x)=>a+Number(x.amount),0);
-  const expenses=data.expenses.reduce((a,x)=>a+Number(x.amount),0);
-  const pending=data.expenses.filter(x=>!x.paid).reduce((a,x)=>a+Number(x.amount),0);
-  $("incomeTotal").textContent=money(income);$("expenseTotal").textContent=money(expenses);
-  $("pendingTotal").textContent=money(pending);$("balanceTotal").textContent=money(income-expenses);
-
-  $("incomeTable").innerHTML=data.income.length?data.income.map((x,i)=>`<tr><td>${x.date}</td><td>${esc(x.concept)}</td><td>${money(x.amount)}</td><td><button class="delete" onclick="removeItem('income',${i})">Eliminar</button></td></tr>`).join(""):'<tr><td colspan="4" class="empty">Agrega tu primer ingreso.</td></tr>';
-
-  $("expenseTable").innerHTML=data.expenses.length?data.expenses.map((x,i)=>`<tr><td>${esc(x.concept)}</td><td>${esc(x.category)}</td><td>${money(x.amount)}</td><td>${x.due}</td><td><label><input class="toggle" type="checkbox" ${x.paid?"checked":""} onchange="togglePaid(${i})"> ${x.paid?"Pagado":"Pendiente"}</label></td><td><button class="delete" onclick="removeItem('expenses',${i})">Eliminar</button></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Agrega tus pagos.</td></tr>';
-
-  $("recurringTable").innerHTML=data.recurring.length?data.recurring.map((x,i)=>`<tr><td>${esc(x.concept)}</td><td>${money(x.amount)}</td><td>${x.day}</td><td>${x.frequency}</td><td><input class="toggle" type="checkbox" ${x.active?"checked":""} onchange="toggleRecurring(${i})"></td><td><button class="delete" onclick="removeItem('recurring',${i})">Eliminar</button></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Agrega tus pagos fijos.</td></tr>';
-
-  const upcoming=data.expenses.filter(x=>!x.paid).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,8);
-  $("upcoming").innerHTML=upcoming.length?upcoming.map(x=>`<div class="upcomingItem"><span><b>${esc(x.concept)}</b><br><small>${x.due} · ${esc(x.category)}</small></span><b>${money(x.amount)}</b></div>`).join(""):'<div class="empty">No tienes pagos pendientes registrados.</div>';
+ const income=filtered(data.income,"date"),expenses=filtered(data.expenses,"due"),allocations=filtered(data.allocations,"date");
+ const incomeSum=income.reduce((a,x)=>a+Number(x.amount||0),0),paidSum=expenses.filter(x=>x.paid).reduce((a,x)=>a+Number(x.amount||0),0),pendingSum=expenses.filter(x=>!x.paid).reduce((a,x)=>a+Number(x.amount||0),0),allocationSum=allocations.reduce((a,x)=>a+Number(x.amount||0),0);
+ $("incomeTotal").textContent=money(incomeSum);$("expenseTotal").textContent=money(paidSum);$("pendingTotal").textContent=money(pendingSum);$("balanceTotal").textContent=money(incomeSum-paidSum-pendingSum-allocationSum);
+ $("incomeTable").innerHTML=income.length?income.map(x=>({x,i:data.income.indexOf(x)})).map(({x,i})=>'<tr><td>'+esc(x.date)+'</td><td>'+esc(x.concept)+'</td><td>'+money(x.amount)+'</td><td>'+actionButtons("income",i)+'</td></tr>').join(""):'<tr><td colspan="4" class="empty">Todavía no hay ingresos en este periodo.</td></tr>';
+ $("expenseTable").innerHTML=expenses.length?expenses.map(x=>({x,i:data.expenses.indexOf(x)})).map(({x,i})=>'<tr><td>'+esc(x.concept)+'</td><td>'+esc(x.category)+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.due)+'</td><td><label><input class="toggle" type="checkbox" '+(x.paid?"checked":"")+' onchange="togglePaid('+i+')"> <span class="status '+(x.paid?"paid":"pending")+'">'+(x.paid?"Pagado":"Pendiente")+'</span></label></td><td>'+actionButtons("expenses",i)+'</td></tr>').join(""):'<tr><td colspan="6" class="empty">No hay pagos en este periodo. Agrega uno arriba.</td></tr>';
+ $("recurringTable").innerHTML=data.recurring.length?data.recurring.map((x,i)=>'<tr><td>'+esc(x.concept)+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.day)+'</td><td>'+esc(x.frequency)+'</td><td><input class="toggle" type="checkbox" '+(x.active?"checked":"")+' onchange="toggleRecurring('+i+')"></td><td>'+actionButtons("recurring",i)+'</td></tr>').join(""):'<tr><td colspan="6" class="empty">Agrega aquí tus pagos fijos.</td></tr>';
+ $("allocationTable").innerHTML=allocations.length?allocations.map(x=>({x,i:data.allocations.indexOf(x)})).map(({x,i})=>'<tr><td>'+esc(x.concept)+'</td><td>'+esc(x.date)+'</td><td>'+money(x.amount)+'</td><td>'+actionButtons("allocations",i)+'</td></tr>').join(""):'<tr><td colspan="4" class="empty">Todavía no tienes apartados.</td></tr>';
+ $("goalsList").innerHTML=data.goals.length?data.goals.map((g,i)=>{const target=Number(g.target)||0,saved=Number(g.saved)||0,pct=target?Math.min(100,Math.round(saved/target*100)):0;return '<article class="goal"><div class="goal-top"><div><h3>'+esc(g.name)+'</h3><p>'+money(saved)+' ahorrados de '+money(target)+'</p></div><b>'+pct+'%</b></div><div class="progress"><span style="width:'+pct+'%"></span></div><div class="goal-top"><p>Faltan '+money(Math.max(0,target-saved))+'</p><div>'+actionButtons("goals",i)+'</div></div></article>'}).join(""):'<p class="empty">Crea una meta para empezar a ahorrar con un objetivo.</p>';
+ const upcoming=expenses.filter(x=>!x.paid).sort((a,b)=>(a.due||"").localeCompare(b.due||"")).slice(0,8);
+ $("upcoming").innerHTML=upcoming.length?upcoming.map(x=>'<div class="upcomingItem"><span><strong>'+esc(x.concept)+'</strong><small>'+esc(x.due)+' · '+esc(x.category)+'</small></span><strong>'+money(x.amount)+'</strong></div>').join(""):'<div class="empty">¡No hay pagos pendientes en este periodo!</div>';
 }
-function removeItem(type,i){data[type].splice(i,1);save()}
+function removeItem(type,i){if(!confirm("¿Quieres borrar este registro?"))return;data[type].splice(i,1);save()}
 function togglePaid(i){data.expenses[i].paid=!data.expenses[i].paid;save()}
 function toggleRecurring(i){data.recurring[i].active=!data.recurring[i].active;save()}
-
-$("incomeForm").onsubmit=e=>{e.preventDefault();data.income.push({date:$("incomeDate").value,concept:$("incomeConcept").value,amount:$("incomeAmount").value});e.target.reset();save()}
-$("expenseForm").onsubmit=e=>{e.preventDefault();data.expenses.push({concept:$("expenseConcept").value,amount:$("expenseAmount").value,due:$("expenseDue").value,category:$("expenseCategory").value,paid:false});e.target.reset();save()}
-$("recurringForm").onsubmit=e=>{e.preventDefault();data.recurring.push({concept:$("recurringConcept").value,amount:$("recurringAmount").value,day:$("recurringDay").value,frequency:$("recurringFrequency").value,active:true});e.target.reset();save()}
-
-$("exportBtn").onclick=()=>{
- const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
- const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="finance-tracker-backup.json";a.click();URL.revokeObjectURL(a.href);
-};
-$("importFile").onchange=e=>{
- const f=e.target.files[0];if(!f)return;
- const r=new FileReader();r.onload=()=>{try{data=JSON.parse(r.result);save();alert("Respaldo restaurado correctamente.");}catch{alert("El archivo no es válido.");}};r.readAsText(f);
-};
-render();
+function editItem(type,i){const x=data[type][i];if(!x)return;const fields=type==="income"?[["date","Fecha"],["concept","Concepto"],["amount","Monto"]]:type==="expenses"?[["concept","Concepto"],["amount","Monto"],["due","Fecha límite"],["category","Categoría"]]:type==="recurring"?[["concept","Concepto"],["amount","Monto"],["day","Día"],["frequency","Frecuencia"]]:type==="allocations"?[["concept","Apartado"],["amount","Monto"],["date","Fecha"]]:[["name","Nombre de meta"],["target","Objetivo"],["saved","Ahorrado"]];for(const [key,label] of fields){const value=prompt("Editar "+label+":",x[key]??"");if(value===null)return;if(value.trim()===""){alert("El campo no puede quedar vacío.");return}x[key]=key==="amount"||key==="target"||key==="saved"||key==="day"?Number(value):value}save()}
+$("incomeForm").onsubmit=e=>{e.preventDefault();data.income.push({date:$("incomeDate").value,concept:$("incomeConcept").value.trim(),amount:Number($("incomeAmount").value)});e.target.reset();save()};
+$("expenseForm").onsubmit=e=>{e.preventDefault();data.expenses.push({concept:$("expenseConcept").value.trim(),amount:Number($("expenseAmount").value),due:$("expenseDue").value,category:$("expenseCategory").value,paid:false});e.target.reset();save()};
+$("recurringForm").onsubmit=e=>{e.preventDefault();data.recurring.push({concept:$("recurringConcept").value.trim(),amount:Number($("recurringAmount").value),day:Number($("recurringDay").value),frequency:$("recurringFrequency").value,active:true});e.target.reset();save()};
+$("allocationForm").onsubmit=e=>{e.preventDefault();data.allocations.push({concept:$("allocationConcept").value.trim(),amount:Number($("allocationAmount").value),date:$("allocationDate").value});e.target.reset();save()};
+$("goalForm").onsubmit=e=>{e.preventDefault();data.goals.push({name:$("goalName").value.trim(),target:Number($("goalTarget").value),saved:Number($("goalSaved").value)});e.target.reset();$("goalSaved").value="0";save()};
+$("periodMode").addEventListener("change",render);$("periodDate").addEventListener("change",render);
+function exportBackup(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const a=document.createElement("a");const url=URL.createObjectURL(blob);a.href=url;a.download="cash-money-respaldo.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+$("exportBtn").onclick=exportBackup;$("exportBtnBottom").onclick=exportBackup;
+$("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const incoming=JSON.parse(r.result);if(!incoming||!Array.isArray(incoming.income)||!Array.isArray(incoming.expenses))throw new Error("Formato incorrecto");if(!confirm("Importar este respaldo reemplazará los datos actuales de esta aplicación. ¿Continuar?"))return;data={...defaults,...incoming};for(const k of Object.keys(defaults))if(!Array.isArray(data[k]))data[k]=[];save();alert("Respaldo restaurado correctamente.")}catch{alert("El archivo no es válido o no es un respaldo compatible.")}finally{e.target.value=""}};r.readAsText(f)};
+$("periodDate").value=today();$("incomeDate").value=today();$("expenseDue").value=today();$("allocationDate").value=today();render();
