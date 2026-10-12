@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10172a">
+<meta name="description" content="Juega Tic Tac Toe contra otra persona o contra la computadora.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Tic Tac Toe — XO Arena</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#141d33;--line:#293654;--text:#f4f7ff;--muted:#9ba9c5;--cyan:#6ee7f9;--pink:#ff83bd;--gold:#ffd166}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#1a2c50 0%,var(--bg) 62%);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);display:flex;justify-content:center;padding:24px 16px calc(24px + env(safe-area-inset-bottom))}
+main{width:min(100%,440px);margin:auto}.brand{text-align:center;margin-bottom:22px}.logo{font-size:2.4rem;font-weight:950;letter-spacing:-5px;color:var(--cyan);text-shadow:3px 3px 0 #ff83bd}.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.22em;color:var(--muted);margin-top:5px}.brand h1{font-size:2rem;margin:9px 0 4px;letter-spacing:-.04em}.brand p{margin:0;color:var(--muted);font-size:.95rem}
+.panel{background:linear-gradient(160deg,#192541,#11192b);border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:0 22px 65px #0005}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}.mode{border:1px solid var(--line);border-radius:13px;background:#0e1628;color:var(--muted);padding:12px 8px;font-weight:750;font-size:.88rem;cursor:pointer}.mode.active{background:#1c3549;color:var(--cyan);border-color:#4e9aaa}
+.score{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}.score article{background:#0d1526;border:1px solid var(--line);border-radius:14px;padding:10px 5px;text-align:center}.score span{display:block;color:var(--muted);font-size:.75rem}.score strong{display:block;font-size:1.4rem;margin-top:2px}.score .x{color:var(--cyan)}.score .o{color:var(--pink)}
+.status{text-align:center;color:var(--muted);min-height:26px;font-size:.95rem;margin:5px 0 12px}.status b{color:var(--text)}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;aspect-ratio:1;margin-bottom:18px}.cell{border:1px solid #30405f;border-radius:18px;background:linear-gradient(145deg,#1c2944,#121b2f);font-size:clamp(2.8rem,15vw,4.3rem);font-weight:900;display:grid;place-items:center;cursor:pointer;transition:transform .12s,border-color .12s;min-width:0;touch-action:manipulation}.cell:active{transform:scale(.96)}.cell:disabled{cursor:default}.cell.x{color:var(--cyan)}.cell.o{color:var(--pink)}.cell.win{background:#263d4a;border-color:var(--gold);box-shadow:inset 0 0 22px #ffd16620}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.btn{padding:13px;border-radius:13px;border:1px solid var(--line);background:#202d48;color:var(--text);font-weight:800;cursor:pointer;font-size:.92rem}.btn.primary{background:var(--cyan);color:#091321;border-color:var(--cyan)}.foot{text-align:center;color:#7786a4;font-size:.75rem;margin:18px 0 0}
+@media(min-width:420px){.panel{padding:22px}.cell{border-radius:20px}}
+</style>
+</head>
+<body><main>
+<header class="brand"><div class="logo">X O</div><div class="eyebrow">The classic game</div><h1>Tic Tac Toe</h1><p>¡Tres en raya, una mente ganadora!</p></header>
+<section class="panel" aria-label="Juego Tic Tac Toe">
+<div class="modes"><button class="mode active" id="cpuMode">🤖 Contra la CPU</button><button class="mode" id="twoMode">👥 Dos jugadores</button></div>
+<div class="score"><article><span id="xLabel">TÚ · X</span><strong class="x" id="xScore">0</strong></article><article><span>EMPATES</span><strong id="drawScore">0</strong></article><article><span id="oLabel">CPU · O</span><strong class="o" id="oScore">0</strong></article></div>
+<div class="status" id="status" aria-live="polite"><b>Tu turno</b> — elige una casilla</div>
+<div class="board" id="board" role="group" aria-label="Tablero de 3 por 3"></div>
+<div class="actions"><button class="btn primary" id="newGame">↻ Nueva partida</button><button class="btn" id="reset">Reiniciar marcador</button></div>
+</section><p class="foot">XO ARENA · Gratis para jugar · Hecho para móvil</p>
+</main>
+<script>
+const boardEl=document.querySelector('#board'),statusEl=document.querySelector('#status');
+let cells=Array(9).fill(''),turn='X',mode='cpu',over=false,scores={X:0,O:0,D:0},winning=[];
+const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+function render(){boardEl.innerHTML='';cells.forEach((v,i)=>{const b=document.createElement('button');b.className='cell'+(v?' '+v.toLowerCase():'')+(winning.includes(i)?' win':'');b.textContent=v;b.setAttribute('aria-label','Casilla '+(i+1)+(v?', '+v:' vacía'));b.disabled=!!v||over||(mode==='cpu'&&turn==='O');b.onclick=()=>play(i);boardEl.appendChild(b)});document.querySelector('#xScore').textContent=scores.X;document.querySelector('#oScore').textContent=scores.O;document.querySelector('#drawScore').textContent=scores.D}
+function check(){for(const line of wins)if(cells[line[0]]&&line.every(i=>cells[i]===cells[line[0]]))return line;return null}
+function play(i){if(cells[i]||over)return;cells[i]=turn;let line=check();if(line){winning=line;over=true;scores[turn]++;statusEl.innerHTML=turn==='X'?'<b>¡Ganaste! 🎉</b>':'<b>¡'+(mode==='cpu'?'La CPU ganó 🤖':'Jugador O ganó')+'!</b>';render();return}if(cells.every(Boolean)){over=true;scores.D++;statusEl.innerHTML='<b>¡Empate!</b> Buena partida 🤝';render();return}turn=turn==='X'?'O':'X';status();render();if(mode==='cpu'&&turn==='O'){setTimeout(cpuMove,360)}}
+function cpuMove(){if(over||mode!=='cpu')return;let move=bestMove();play(move)}
+function bestMove(){// Minimax: la CPU juega de forma óptima
+let best=-Infinity,choice=-1;for(let i=0;i<9;i++)if(!cells[i]){cells[i]='O';let score=minimax(false,0);cells[i]='';if(score>best){best=score;choice=i}}return choice}
+function minimax(maximizing,depth){const line=check();if(line)return cells[line[0]]==='O'?10-depth:depth-10;if(cells.every(Boolean))return 0;if(maximizing){let best=-Infinity;for(let i=0;i<9;i++)if(!cells[i]){cells[i]='O';best=Math.max(best,minimax(false,depth+1));cells[i]=''}return best}else{let best=Infinity;for(let i=0;i<9;i++)if(!cells[i]){cells[i]='X';best=Math.min(best,minimax(true,depth+1));cells[i]=''}return best}}
+function status(){statusEl.innerHTML=turn==='X'?'<b>Tu turno</b> — elige una casilla':mode==='cpu'?'<b>Turno de la CPU</b>':'<b>Turno del jugador O</b>'}
+function newGame(){cells=Array(9).fill('');turn='X';over=false;winning=[];status();render()}
+function setMode(m){mode=m;document.querySelector('#cpuMode').classList.toggle('active',m==='cpu');document.querySelector('#twoMode').classList.toggle('active',m==='two');document.querySelector('#xLabel').textContent=m==='cpu'?'TÚ · X':'JUGADOR X';document.querySelector('#oLabel').textContent=m==='cpu'?'CPU · O':'JUGADOR O';newGame()}
+document.querySelector('#cpuMode').onclick=()=>setMode('cpu');document.querySelector('#twoMode').onclick=()=>setMode('two');document.querySelector('#newGame').onclick=newGame;document.querySelector('#reset').onclick=()=>{scores={X:0,O:0,D:0};newGame()};render();
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script></body></html>
