@@ -14,3 +14,10 @@
 .entry-dialog .form-grid .wide-field{grid-column:1/-1}
 .entry-dialog textarea{width:100%;margin-top:5px;padding:12px;border:1px solid #d9e2dd;background:#fff;border-radius:10px;color:var(--ink);font:inherit;resize:vertical}
 @media(max-width:520px){.entry-dialog{padding:18px;max-height:88dvh}.entry-dialog .form-grid{grid-template-columns:1fr}.entry-dialog .form-grid .wide-field{grid-column:auto}}
+
+/* Colores para distinguir ingresos y gastos registrados */
+#incomeTable td { color: #16804a; }
+#expenseTable td { color: #c62828; }
+#expenseTable .status.paid { color: #167046; }
+#expenseTable .status.pending { color: #895e13; }
+#expenseTable .edit, #expenseTable .delete { color: inherit; }
