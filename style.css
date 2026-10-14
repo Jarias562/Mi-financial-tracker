@@ -21,3 +21,11 @@
 #expenseTable .status.paid { color: #167046; }
 #expenseTable .status.pending { color: #895e13; }
 #expenseTable .edit, #expenseTable .delete { color: inherit; }
+
+/* Forzar colores visibles en los registros, incluso si otro estilo los sobrescribe */
+#incomeTable tr td { color: #16804a !important; }
+#expenseTable tr td { color: #c62828 !important; }
+#expenseTable tr td .status.paid { color: #167046 !important; }
+#expenseTable tr td .status.pending { color: #895e13 !important; }
+#expenseTable tr td button.edit { color: #146345 !important; }
+#expenseTable tr td button.delete { color: #9b3c32 !important; }
